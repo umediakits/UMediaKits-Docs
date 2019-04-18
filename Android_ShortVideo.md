@@ -2,6 +2,51 @@
 
 ## 发版说明
 
+### v2.0.6 (2018-04-15)
+
+- 2.0.6
+  - 发布 ushortvideo-2.0.6.jar
+  - 增加停止录制时，是否清除预览画面参数
+  - 增加自定义录制 cache 目录时，自动检查创建文件目录机制
+  - 增加自动检查创建编辑文件输出目录机制
+  - 修复录制时指定 GOP 无效问题
+  - 修复剪辑时预览画面和用户指定画面不匹配 bug
+
+### v2.0.5 (2018-04-09)
+
+- 2.0.5
+  - 发布 ushortvideo-2.0.5.jar
+  - 增加图片编辑功能
+  - 增加相机闪光灯接口
+  - 增加相机变焦接口
+  - 相芯特效库升级到 v6.0
+
+### v2.0.4 (2018-03-29)
+
+- 2.0.4
+  - 发布 ushortvideo-2.0.4.jar
+  - 更新 libuaudio_converter.so
+  - 增加视频画面裁剪接口
+  - 增加 fastStartMp4 接口，加快在线播放开播速度
+  - Movieous Demo 中增加自定义音视频参数的演示
+  - 修复某些手机图片合成方向不正确 bug
+  - 修复保存编辑视频时，自定义画面尺寸无效 bug
+  - 修复保存编辑视频时，可能没有相关回调的 bug
+
+### v2.0.3 (2018-03-25)
+
+- 2.0.3
+  - 发布 ushortvideo-2.0.3.jar
+  - 增加屏幕录制功能
+  - 增加涂鸦功能
+  - Demo 中增加 SENSETIME 特效演示
+
+### v2.0.2 (2018-03-18)
+
+- 2.0.2
+  - 发布 ushortvideo-2.0.2.jar
+  - 增加 MV 特效接口
+
 ### v2.0.1 (2018-03-08)
 
 - 2.0.1
@@ -63,7 +108,7 @@ SDK 主要包含 jar 文件和 native 动态库，具体说明如下：
 
 | 文件名称                           | 功能      | 大小    | 备注          |
 | ------------------------------ | ------- | ----- | ----------- |
-| ushortvideo-x.x.x.jar          | 核心库     | 388KB | 必须依赖        |
+| ushortvideo-x.x.x.jar          | 核心库     | 418KB | 必须依赖        |
 | libuaudio_converter.so         | 音频模块   | 387KB | 不使用混音功能可以去掉 |
 
 ### 添加依赖
@@ -478,6 +523,89 @@ public interface UAudioFrameListener {
 }
 ```
 
+#### 添加文字贴纸
+
+在编辑视频时，可以通过以下接口添加文字：
+
+```java
+    mTextSticker = new USticker();
+    String stickerText = "这是一个美丽的传说";
+    int stickerW = mVideoWidth / 2;
+    int stickerH = stickerW / stickerText.length();
+    mTextSticker.init(USticker.StickerType.TEXT, stickerW, stickerH)
+            .setText(stickerText, Color.RED)
+            .setDuration(0, (int) UMediaUtil.getMetadata(mVideoFile).duration)
+            .setPosition(mVideoWidth / 2 - stickerW / 2, mVideoHeight - stickerH - 20);     //视频图像的左上角为坐标原点
+    mVideoEditManager.addSticker(mTextSticker);
+```
+
+删除文字贴纸
+
+```java
+    mVideoEditManager.removeSticker(mTextSticker);
+```
+
+#### 涂鸦功能
+
+在编辑视频时，可以通过以下接口添加涂鸦视图：
+
+```java
+    mPaintView = new UPaintView(this, mRenderView.getWidth(), mRenderView.getHeight());
+    mVideoEditManager.addPaintView(mPaintView);
+```
+
+删除涂鸦视图
+
+```java
+    mVideoEditManager.removePaintView(mPaintView);
+```
+
+回删上一步涂鸦操作
+
+```java
+    mPaintView.undo();
+```
+
+清空涂鸦视图
+
+```java
+    mPaintView.clear();
+```
+
+#### 屏幕录制
+
+初始化屏幕录制对象
+
+```java
+    mScreenRecordManager = new UScreenRecordManager();
+    mScreenRecordManager.setRecordStateListener(this);
+    mScreenRecordManager.init(this, OUTPUT_FILE, new UAVOptions());
+```
+
+屏幕录制需要通过用户授权，调用 `requestScreenRecord` 接口，申请屏幕录制
+
+```java
+    mScreenRecordManager.requestScreenRecord();
+```
+
+调用上述接口后，会弹出申请屏幕录制窗口，用户授权后，会通过 `onActivityResult` 接口回调用户操作结果，调用下面接口，把授权结果返回 SDK：
+
+```java
+    boolean isOk = mScreenRecordManager.onActivityResult(requestCode, resultCode, data);
+```
+
+该接口返回  `true`，表示用户同意开始屏幕录制，调用 `startRecord` 接口开始录制：
+
+```java
+    mScreenRecordManager.startRecord();
+```
+
+录制完成后，调用 `stopRecord` 接口停止屏幕录制：
+
+```java
+    mScreenRecordManager.stopRecord();
+```
+
 ### API 参考
 
 #### `UShortVideoEnv`
@@ -547,9 +675,16 @@ public interface UAudioFrameListener {
     public void startPreview()
 
     /**
-     * 停止预览
+     * 停止预览，清除当前预览画面
      */
     public void stopPreview()
+
+    /**
+     * 停止预览
+     *
+     * @param clearScreen true: 清除画面 false：保留当前预览画面
+     */
+    public void stopPreview(boolean clearScreen)
 
     /**
      * 释放资源
@@ -663,6 +798,36 @@ public interface UAudioFrameListener {
      * @param y 手动对焦点 y 坐标
      */
     public void focus(float x, float y)
+
+    /**
+     * 是否支持变焦
+     */
+    public boolean isCameraZoomSupported()
+
+    /**
+     * 设置 Camera 缩放比例
+     *
+     * @param zoom 0: 不进行缩放，范围 0 - 100
+     */
+    public void setCameraZoom(int zoom)
+
+    /**
+     * 是否支持闪光灯操作
+     */
+    public boolean isCameraFlashSupported()
+
+    /**
+     * 打开/关闭闪光灯
+     *
+     * @param lightOn true: 打开闪光灯 false：关闭闪光灯
+     * @return 操作是否成功
+     */
+    public boolean turnCameraLight(boolean lightOn)
+
+    /**
+     * 设置拍照和录制时，是否自动开启闪光灯
+     */
+    public UVideoRecordManager setLightOnEnalbed(boolean lightOnEnalbed)
 ```
 
 #### `UVideoEditManager`
@@ -881,6 +1046,47 @@ public interface UAudioFrameListener {
      * @param trimTime 剪辑时间段
      */
     public void setTrimTime(UMediaTrimTime trimTime)
+
+    /**
+     * 添加 MV 特效视频文件
+     *
+     * @param mvFile   mv file
+     * @param maskFile mask file for alpha channel
+     */
+    public void setOverlayVideoFile(String mvFile, String maskFile)
+
+    /**
+     * 添加涂鸦
+     */
+    public void addPaintView(UPaintView paintView)
+
+    /**
+     * 删除涂鸦
+     */
+    public void removePaintView(UPaintView paintView)
+
+    /**
+     * 设置获取当前纹理输出 buffer
+     * 说明：该接口会增加耗时，如无需要，请不有调用该接口
+     *
+     * @param buffer
+     */
+    public void setOutputBuffer(ByteBuffer buffer)
+
+    /**
+     * 视频画面裁剪
+     *
+     * @param x      视频 x 坐标，左上角为坐标原点
+     * @param y      视频 y 坐标，左上角为坐标原点
+     * @param width  裁剪图像宽度
+     * @param height 裁剪图像宽度
+     */
+    public void setCropRegion(int x, int y, int width, int height)
+
+    /**
+     * 撤销画面裁剪
+     */
+    public void undoCropRegion()
 ```
 
 > 说明：保存编辑文件包含两种模式：<p>
@@ -1123,6 +1329,15 @@ public interface UAudioFrameListener {
      * @param callback 图片回调，参见：{@link SingleCallback<Bitmap, Long>}, 参数分别为图片和当前时间戳
      */
     public static void getVideoThumb(final Uri videoUri, final int count, final long begin, final long end, final int width, final int height, final SingleCallback callback)
+
+    /**
+     * 在线播放时，把 moov 移动到文件开始，加快开始播放速度
+     *
+     * @param inFile
+     * @param outFile
+     * @return 0：执行成功，其他：错误码
+     */
+    public static int fastStartMp4(String inFile, String outFile)
 ```
 
 #### `UAVOptions`
@@ -1369,6 +1584,240 @@ public interface UAudioFrameListener {
      */
     default void onPositionChanged(int position) {
     }
+```
+
+#### `USticker` 文字、图片贴纸类
+
+```java
+    /**
+     * 初始化贴纸对象，必须在实例化后第一个调用
+     *
+     * @param stickerType 贴纸类型，文字、图片...etc
+     * @param width       贴纸宽度，不能超过视频宽度
+     * @param height      贴纸高度，不能超过视频高度
+     */
+    public USticker init(StickerType stickerType, int width, int height)
+
+    /**
+     * 开始合成贴纸
+     */
+    public void start()
+
+    /**
+     * 停止合成贴纸
+     */
+    public void pause()
+
+    /**
+     * 设置贴纸位置, 视频图像的左上角为坐标原点
+     */
+    public USticker setPosition(int x, int y)
+
+    /**
+     * 设置贴纸角度
+     *
+     * @param angle
+     */
+    public USticker setAngle(int angle)
+
+    /**
+     * 设置贴纸开始时间
+     */
+    public USticker setDuration(int beginTimeMs, int durationMs)
+
+    /**
+     * 设置文字贴纸
+     *
+     * @param text      文字内容
+     * @param textColor 文字颜色
+     */
+    public USticker setText(String text, int textColor)
+
+     /**
+     * 设置文字贴纸
+     *
+     * @param text      文字内容
+     * @param textPaint 自定义文字样式
+     */
+    public USticker setText(String text, TextPaint textPaint)
+
+    /**
+     * 设置图片贴纸
+     *
+     * @param bitmap 图片，保持图片尺寸
+     */
+    public USticker setImage(Bitmap bitmap)
+
+    /**
+     * 设置图片贴纸
+     *
+     * @param bitmap 图片
+     * @param width  宽度
+     * @param height 高度
+     * @return
+     */
+    public USticker setImage(Bitmap bitmap, int width, int height)
+```
+
+#### `UPaintView` 涂鸦视图
+
+```java
+    /**
+     * 设置画笔颜色.
+     *
+     * @param color the color of paint.
+     */
+    public void setPaintColor(int color) {
+        super.setPaintColor(color);
+    }
+
+    /**
+     * 设置画笔尺寸
+     *
+     * @param size the size of paint.
+     */
+    public void setPaintSize(int size) {
+        super.setPaintSize(size);
+    }
+
+    /**
+     * 自定义画笔参数
+     *
+     * @param paint the custom paint.
+     */
+    public void setPaint(Paint paint) {
+        super.setPaint(paint);
+    }
+
+    /**
+     * 回删上一步涂鸦操作
+     */
+    public void undo() {
+        super.undo();
+    }
+
+    /**
+     * 清除所有涂鸦操作
+     */
+    public void clear() {
+        super.clear();
+    }
+```
+
+#### `UScreenRecordManager` 屏幕录制
+
+```java
+   /**
+     * 初始化
+     */
+    public void init(Activity activity, String outputFile, UAVOptions options)
+
+    /**
+     * 设置录制过程事件回调
+     */
+    public void setRecordStateListener(URecordListener stateListener)
+
+    /**
+     * 请求屏幕录制权限
+     */
+    public void requestScreenRecord()
+
+    /**
+     * 获取授权结果
+     */
+    public boolean onActivityResult(int requestCode, int resultCode, Intent data)
+
+    /**
+     * 开始录制
+     */
+    public void startRecord()
+
+    /**
+     * 结束录制
+     */
+    public void stopRecord()
+```
+
+#### `UImageEditManager` 图片编辑
+
+```java
+    /**
+     * 初始化
+     *
+     * @param preview 图片预览画面
+     * @return
+     */
+    public UImageEditManager init(UTextureView preview)
+
+    /**
+     * 设置图片
+     *
+     * @param bitmap 图片
+     * @return
+     */
+    public UImageEditManager setBitmap(Bitmap bitmap)
+
+    /**
+     * 设置图片文件
+     *
+     * @param filePath 图片文件路径
+     * @return
+     */
+    public UImageEditManager setFilePath(String filePath)
+
+    /**
+     * 设置图片文件, 同时指定图片输出尺寸
+     *
+     * @param filePath 图片文件路径
+     * @param width    指定图片宽度
+     * @param height   指定图片高度
+     * @return
+     */
+    public UImageEditManager setFilePath(String filePath, int width, int height)
+
+    /**
+     * 设置图片纹理数据回调
+     *
+     * @param listener
+     * @return
+     */
+    public UImageEditManager setVideoFrameListener(UVideoFrameListener listener)
+
+    /**
+     * 保存图片
+     *
+     * @param callback 返回处理后 Bitmap
+     */
+    public void save(String outFile, UBitmapOutputCallback callback)
+
+    /**
+     * 释放资源，与 init 接口成对调用
+     */
+    public void release()
+
+    /**
+     * 添加文字、图片贴纸
+     *
+     * @param sticker 贴纸对象，参见 {@link USticker}
+     */
+    public UImageEditManager addSticker(USticker sticker)
+
+    /**
+     * 删除贴纸
+     *
+     * @param sticker 贴纸对象
+     */
+    public void removeSticker(USticker sticker)
+
+    /**
+     * 添加涂鸦
+     */
+    public void addPaintView(UPaintView paintView)
+
+    /**
+     * 删除涂鸦
+     */
+    public void removePaintView(UPaintView paintView)
 ```
 
 ### 自定义对象
